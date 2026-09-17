@@ -1,7 +1,7 @@
 {
   "functions": {
     "app.py": {
-      "maxDuration": 15
+      "maxDuration": 10
     }
   }
 }
