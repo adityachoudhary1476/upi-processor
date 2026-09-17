@@ -5,6 +5,8 @@ import httpx
 from lxml import html
 from urllib.parse import urlparse
 import re
+import asyncio
+from html import escape as html_escape
 from typing import Optional
 
 app = FastAPI(title="URL Processor API", version="1.0.0")
@@ -118,22 +120,69 @@ def extract_page_info(url: str) -> dict:
     return result
 
 
-@app.get("/process")
-async def process(url: Optional[str] = None):
-    """Fetch a URL and return structured page data as JSON."""
-    if not url or not url.strip():
-        return JSONResponse(
-            status_code=400,
-            content={"error": "Missing or empty 'url' query parameter"},
-        )
-    url = url.strip()
+MAX_AUDIT_URLS = 5  # per-request cap so the serverless fn stays within Vercel's time limit
+
+
+_TABLE_CSS = """
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f172a;color:#e2e8f0;margin:0;padding:1.5rem}
+.max{width:900px;margin:0 auto}
+h3{color:#e2e8f0;margin-bottom:.25rem}
+table{border-collapse:collapse;width:100%;margin-top:1rem}
+th,td{border:1px solid #33415d;padding:.55rem .6rem;text-align:left;font-size:.85rem}
+th{background:#1e293b;color:#cbd5e1}
+tbody tr:nth-child(even){background:#1e293b}
+tr.blocked td{background:#311a1a}
+.muted{color:#94a3a5;font-size:.85rem;margin-top:.75rem}
+a{color:#60a5fa}
+"""
+
+
+def _render_table(results: list, truncated: bool, total: int) -> str:
+    """Render audit results as an escape-safe standalone HTML page with a table."""
+    def esc(v):
+        return html_escape("" if v is None else str(v))
+    rows = []
+    for r in results:
+        if r.get("error"):
+            rows.append(
+                '<tr class="blocked"><td colspan="2">' + esc(r.get("domain") or r.get("url")) + "</td>"
+                '<td colspan="3">' + esc(r.get("error")) + "</td></tr>"
+            )
+        else:
+            rows.append(
+                "<tr><td>" + esc(r.get("domain", "")) + "</td>"
+                '<td title="' + esc(r.get("title", "")) + '">' + esc((r.get("title") or "")[:60]) + "</td>"
+                "<td>" + str(r.get("total_words", 0)) + "</td><td>" + str(r.get("h1_count", "")) + "</td>"
+                '<td>' + (" ".join(r.get("flags", [])) or "—") + "</td></tr>"
+            )
+    note = (
+        '<p class="muted">Showing ' + str(len(results)) + " of " + str(total) +
+        " URLs. For larger bulk audits, use <code>run_batch.sh</code> for a CSV deliverable.</p>"
+        if truncated else ""
+    )
+    return (
+        '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        "<title>SEO Audit Results</title>"
+        "<style>" + _TABLE_CSS + "</style></head><body><div class=\"max\">"
+        "<h3>SEO Audit Results</h3>"
+        "<table><thead><tr><th>Domain</th><th>Title</th><th>Words</th><th>H1</th><th>Notes</th></tr></thead>"
+        "<tbody>" + "".join(rows) + "</tbody></table>" + note + "</div></body></html>"
+    )
+
+
+def process_one(url: str) -> dict:
+    """Fetch a single URL and always return a result dict (never raise).
+
+    Success -> {url, domain, title, total_words, h1_count, status, flags, processed_at}
+    Blocked -> {url, domain, error, status, blocked: True}
+    Failed   -> {url, domain, error, status, blocked: False}
+    """
     try:
-        result = extract_page_info(url)
-        return result
+        return extract_page_info(url)
     except httpx.HTTPStatusError as e:
         code = e.response.status_code
         # 400/401/403/409/429 are site-side bot-blocks (e.g. facebook.com / instagram).
-        # Surface a clear, deliverable-friendly message instead of the cryptic raw error.
         blocked = code in (400, 401, 403, 409, 429)
         message = (
             f"Site blocked (HTTP {code}). The target actively blocks automated extraction "
@@ -141,32 +190,46 @@ async def process(url: Optional[str] = None):
             if blocked
             else f"HTTP error fetching URL: {code}"
         )
-        return JSONResponse(
-            status_code=200,
-            content={
-                "url": url,
-                "domain": extract_domain(url),
-                "error": message,
-                "status": code,
-                "blocked": blocked,
-            },
-        )
+        return {"url": url, "domain": extract_domain(url), "error": message, "status": code, "blocked": blocked}
     except httpx.RequestError as e:
-        return JSONResponse(
-            status_code=200,
-            content={
-                "url": url,
-                "domain": extract_domain(url),
-                "error": f"Request error: {str(e)}",
-                "status": None,
-                "blocked": False,
-            },
-        )
+        return {"url": url, "domain": extract_domain(url), "error": f"Request error: {str(e)}", "status": None, "blocked": False}
     except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content={"error": f"Processing error: {str(e)}"},
+        return {"url": url, "domain": extract_domain(url), "error": f"Processing error: {str(e)}", "status": None, "blocked": False}
+
+
+@app.get("/process")
+async def process(url: Optional[str] = None):
+    """Fetch a single URL and return structured page data as JSON."""
+    if not url or not url.strip():
+        return JSONResponse(status_code=400, content={"error": "Missing or empty 'url' query parameter"})
+    return process_one(url.strip())
+
+
+@app.get("/audit")
+async def audit(urls: Optional[str] = None, fmt: Optional[str] = None):
+    """Process multiple URLs (comma- or newline-separated) concurrently.
+
+    Returns JSON by default; ?fmt=table returns an HTML table.
+    Capped at MAX_AUDIT_URLS per request (serverless time limit). Larger sets
+    are handled by run_batch.sh -> CSV (see DEPLOY_AND_EARN.md).
+    """
+    if not urls:
+        return HTMLResponse(
+            f"<h3>Bulk SEO Audit</h3><p>Pass up to {MAX_AUDIT_URLS} URLs comma- or newline-separated, e.g. "
+            f"<code>/audit?urls=https://example.com,https://bbc.com/news&fmt=table</code></p>",
+            status_code=400,
         )
+    raw = [u.strip() for u in re.split(r"[,\n]+", urls) if u.strip()]
+    truncated = len(raw) > MAX_AUDIT_URLS
+    url_list = raw[:MAX_AUDIT_URLS]
+    results = await asyncio.gather(*[asyncio.to_thread(process_one, u) for u in url_list])
+    if fmt == "table":
+        return HTMLResponse(_render_table(results, truncated, len(raw)))
+    if truncated:
+        return JSONResponse(
+            {"results": results, "note": f"Showing first {MAX_AUDIT_URLS} of {len(raw)} URLs. For larger audits, use run_batch.sh -> CSV."}
+        )
+    return JSONResponse(results)
 
 
 HTML_LANDING = """<!DOCTYPE html>
@@ -187,6 +250,8 @@ HTML_LANDING = """<!DOCTYPE html>
   input[type=url] { flex:1 1 280px; padding:.7rem 1rem; border:1px solid #475569; border-radius:10px;
                      background:#0f172a; color:#e2e8f0; font-size:.95rem; }
   input[type=url]::placeholder { color:#64748b; }
+  textarea { width:100%; padding:.7rem; border:1px solid #475569; border-radius:10px;
+             background:#0f172a; color:#e2e8f0; font-family:inherit; font-size:.9rem; resize:vertical; }
   button { padding:.7rem 1.15rem; border:none; border-radius:10px; background:#2563eb; color:#fff; font-weight:600; cursor:pointer; }
   button:hover { background:#1d4ed8; }
   pre#result { background:#0f172a; border:1px solid #33415d; border-radius:12px; padding:1rem; font-size:.82rem;
@@ -207,6 +272,13 @@ HTML_LANDING = """<!DOCTYPE html>
       <button type="submit">Extract</button>
     </form>
     <pre id="result">Enter a URL and click Extract. The JSON result appears here.</pre>
+  </div>
+  <div class="card">
+    <div class="muted" style="font-weight:600">Bulk SEO audit</div>
+    <p class="muted" style="margin:0 0 .5rem">Paste up to 5 URLs (one per line or comma-separated) for an instant results table.</p>
+    <textarea id="bulk" rows="3" placeholder="https://example.com&#10;https://bbc.com/news&#10;https://www.apple.com"></textarea>
+    <button id="audit-btn" type="button" style="margin-top:.5rem">Audit URLs</button>
+    <div id="audit-result"></div>
   </div>
   <div class="card">
     <div class="muted">Try a sample:</div>
@@ -235,6 +307,16 @@ document.getElementById('form').addEventListener('submit', async e=>{
     const data=await r.json();
     box.textContent=JSON.stringify(data,null,2);
   }catch(err){ box.textContent='Error: '+err; }
+});
+document.getElementById('audit-btn').addEventListener('click', async ()=>{
+  const urls=document.getElementById('bulk').value;
+  if(!urls.trim()) return;
+  const box=document.getElementById('audit-result');
+  box.innerHTML='<p class="muted">Auditing…</p>';
+  try{
+    const r=await fetch('/audit?fmt=table&urls='+encodeURIComponent(urls));
+    box.innerHTML=await r.text();
+  }catch(e){ box.textContent='Error: '+e; }
 });
 </script>
 </body>
