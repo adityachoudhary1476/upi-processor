@@ -1,0 +1,30 @@
+name: B2B Lead Extraction
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "URL to extract leads from (team page / directory)"
+        required: true
+        type: string
+      extra:
+        description: "Additional URLs, comma-separated (optional)"
+        required: false
+        type: string
+jobs:
+  extract:
+    name: Extract B2B leads -> CSV
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm install
+        working-directory: ./scraper
+      - name: Run extractor
+        run: node lead-extractor.mjs "${{ inputs.target }} ${{ inputs.extra }}" --fmt csv --out leads.csv
+        working-directory: ./scraper
+      - uses: actions/upload-artifact@v4
+        with:
+          name: b2b-leads
+          path: scraper/leads.csv
