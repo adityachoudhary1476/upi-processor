@@ -1,0 +1,12 @@
+{
+  "name": "b2b-lead-extractor",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "B2B lead extractor (name, email + MX-verified, phone, company, job title, LinkedIn URL) via axios + cheerio + Node dns. Free, no API keys.",
+  "bin": { "extract-leads": "lead-extractor.mjs" },
+  "scripts": {
+    "start": "node lead-extractor.mjs",
+    "test": "node lead-extractor.mjs http://127.0.0.1:8765/team.html --fmt table"
+  },
+  "dependencies": { "axios": "^1.7.2", "cheerio": "^1.0.0-rc.12" }
+}
