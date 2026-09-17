@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from datetime import datetime, timezone
 import httpx
 from lxml import html
@@ -145,6 +145,83 @@ async def process(url: Optional[str] = None):
             status_code=500,
             content={"error": f"Processing error: {str(e)}"},
         )
+
+
+HTML_LANDING = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>URL Processor API</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+         background:#0f172a; color:#e2e8f0; min-height:100vh; }
+  .wrap { max-width:820px; margin:0 auto; padding:3rem 1.25rem 4rem; }
+  h1 { font-size:2rem; margin:0 0 .35rem; }
+  .sub { color:#94a3a5; margin:0 0 1.5rem; line-height:1.5; }
+  .card { background:#1e293b; border:1px solid #33415d; border-radius:14px; padding:1.5rem; margin-bottom:1.25rem; }
+  form { display:flex; gap:.5rem; flex-wrap:wrap; }
+  input[type=url] { flex:1 1 280px; padding:.7rem 1rem; border:1px solid #475569; border-radius:10px;
+                     background:#0f172a; color:#e2e8f0; font-size:.95rem; }
+  input[type=url]::placeholder { color:#64748b; }
+  button { padding:.7rem 1.15rem; border:none; border-radius:10px; background:#2563eb; color:#fff; font-weight:600; cursor:pointer; }
+  button:hover { background:#1d4ed8; }
+  pre#result { background:#0f172a; border:1px solid #33415d; border-radius:12px; padding:1rem; font-size:.82rem;
+               line-height:1.5; overflow:auto; color:#cbd5e1; min-height:90px; white-space:pre-wrap; word-break:break-word; }
+  .muted { color:#64748b; font-size:.85rem; }
+  kbd { background:#33415d; padding:1px 6px; border-radius:4px; font-size:.8rem; }
+  code { background:#0f172a; padding:1px 6px; border-radius:4px; }
+  a { color:#60a5fa; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>URL Processor API</h1>
+  <p class="sub">Extract structured data from any URL &mdash; <strong>title</strong>, <strong>word count</strong>, <strong>H1 count</strong>, <strong>registered domain</strong>, and <strong>SEO flags</strong> (thin content, missing title, JS-rendered H1). Built by an autonomous AI agent on a free keyless model &mdash; zero API keys, zero cost.</p>
+  <div class="card">
+    <form id="form" autocomplete="off">
+      <input type="url" id="url" name="url" placeholder="https://example.com" required>
+      <button type="submit">Extract</button>
+    </form>
+    <pre id="result">Enter a URL and click Extract. The JSON result appears here.</pre>
+  </div>
+  <div class="card">
+    <div class="muted">Try a sample:</div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem;">
+      <button type="button" onclick="run('https://example.com')">example.com</button>
+      <button type="button" onclick="run('https://bbc.com/news')">bbc.com/news</button>
+      <button type="button" onclick="run('https://www.apple.com')">apple.com</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="muted"><strong>Programmatic API:</strong></div>
+    <code>GET /process?url=https://example.com</code> returns JSON.
+    <div class="muted" style="margin-top:.5rem">e.g. <kbd>curl -s "https://app.vercel.app/process?url=https://example.com"</kbd></div>
+  </div>
+  <p class="muted">Runs on Vercel Functions. First request may take ~1s to warm up.</p>
+</div>
+<script>
+function run(u){ document.getElementById('url').value=u; document.getElementById('form').requestSubmit(); }
+document.getElementById('form').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const url=document.getElementById('url').value;
+  const box=document.getElementById('result');
+  box.textContent='Processing…';
+  try{
+    const r=await fetch('/process?url='+encodeURIComponent(url));
+    const data=await r.json();
+    box.textContent=JSON.stringify(data,null,2);
+  }catch(err){ box.textContent='Error: '+err; }
+});
+</script>
+</body>
+</html>
+"""
+
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    return HTML_LANDING
 
 
 def run_self_test() -> None:
