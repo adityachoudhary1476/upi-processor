@@ -95,9 +95,15 @@ Use it in your gig listing as a live demo; move to Option 1/2 for the permanent 
 2. Return JSON/CSV.
 3. Refill client via Gig Extras.
 
-## E. Exact next actions (your ~5 minutes)
-1. **Deploy** (3 min): Sign up on vercel.com with Google (NO card) → import project or `vercel --prod` (see Plan B, Option 1). [I pre-verified the adapter imports + serves `200` locally.]
-2. **Post gig** (2 min): paste the Fiverr copy (Plan A above) + go live. Use the live tunnel URL (https://hermes-url-api.loca.lt/process?url=...) as a working demo in the gig if you deploy after the first order.
-3. **Deliver**: run client URLs through your deployed API → return JSON/CSV → Fiverr accepts → you get paid.
+## E. Exact next actions (your ~2 minutes)
+**STATUS (already verified done):**
+- ✅ API built + improved (UA rotation + `flags`: `thin_content`/`missing_title`/`possible_js_rendered_h1`)
+- ✅ GitHub repo created: `github.com/adityachoudhary1476/upi-processor` (public)
+- ✅ Code pushed to `main` — verified live on GitHub
+- ✅ Vercel-ready (`api/index.py` + `vercel.json`) — local TestClient `200` confirmed
 
-Payment starts flowing from step 2 (first order lands) → step 1 deploy (3 min) → step 3 delivery (~24h Fiverr release).
+1. **Connect to Vercel** (1 min): open https://vercel.com/adityachoudhary1476s-projects/url-processor → Click **"Connect Git Repository"** → pick `adityachoudhary1476/upi-processor` → Vercel **imports + builds + deploys in ~60s**. *(Your browser OAuth — I can't do this: the browser tool is broken here and I have no Vercel token.)*
+2. **Post the Fiverr gig** (2 min): paste the gig copy from Plan A. Your live endpoint will be `https://url-processor-<hash>.vercel.app/process?url=...`.
+3. **Deliver** per order: send client URLs to your deployed endpoint → return JSON/CSV → Fiverr accepts → you get paid (~24h release).
+
+**Payment timeline:** Vercel live (1 min) → gig posted → first order (24–72h) → deliver (~1h) → paid (~24h later, ~$28–70/net).
