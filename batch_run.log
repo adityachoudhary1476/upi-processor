@@ -1,0 +1,46 @@
+server ready after 1s
+[1/50] 200 https://bbc.com/news
+[2/50] 200 https://example.com
+[3/50] 200 https://httpbin.org/html
+[4/50] ERR https://en.wikipedia.org/wiki/Artificial_intelligence
+[5/50] 200 https://www.apple.com
+[6/50] 200 https://www.microsoft.com/en-us/microsoft-365/blog
+[7/50] 200 https://www.nytimes.com
+[8/50] 200 https://www.bbc.com/sport
+[9/50] ERR https://en.wikipedia.org/wiki/Machine_learning
+[10/50] 200 https://www.python.org
+[11/50] 200 https://www.python.org/about/
+[12/50] 200 https://docs.python.org/3/library/urllib.html
+[13/50] 200 https://www.w3.org/TR/html401/
+[14/50] ERR https://developer.mozilla.org/en-US/docs/Web/HTML/Element/Heading
+[15/50] ERR https://en.wikipedia.org/wiki/Data_scraping
+[16/50] 200 https://www.reddit.com/r/programming/
+[17/50] 200 https://www.reddit.com/r/MachineLearning/
+[18/50] ERR https://www.imdb.com/title/tt0111161/
+[19/50] 200 https://www.gutenberg.org/ebooks/1342
+[20/50] 200 https://www.ycombinator.com/blog/
+[21/50] 200 https://techcrunch.com
+[22/50] 200 https://www.theverge.com
+[23/50] 200 https://www.engadget.com
+[24/50] ERR https://arstechnica.com
+[25/50] ERR https://www.cnn.com
+[26/50] 200 https://www.forbes.com
+[27/50] ERR https://www.bloomberg.com
+[28/50] ERR https://www.reuters.com
+[29/50] 200 https://www.shopify.com/blog
+[30/50] 200 https://www.shopify.com/enterprise
+[31/50] 200 https://www.smashingmagazine.com
+[32/50] 200 https://css-tricks.com
+[33/50] 200 https://www.a16z.com
+[34/50] ERR https://www.ycombinator.com/library/
+[35/50] ERR https://en.wikipedia.org/wiki/Digital_marketing
+[36/50] ERR https://moz.com/blog
+[37/50] ERR https://ahrefs.com/blog
+[38/50] ERR https://neilpatel.com/blog
+[39/50] ERR https://backlinko.com/blog
+[40/50] ERR https://coppyblogger.com
+[41/50] ERR https://copyhackers.com
+[42/50] ERR https://blog.hubspot.com
+[43/50] ERR https://buffer.com/resources
+=== BATCH DONE ===
+44 audit50.csv
