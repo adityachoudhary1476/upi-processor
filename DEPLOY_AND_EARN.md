@@ -2,7 +2,7 @@
 
 ## What's built (VERIFIED)
 A FastAPI micro-service that extracts structured data from any URL:
-`GET /process?url=<url>` → `{"url","domain","title","total_words","h1_count","status","processed_at"}`
+|GET /process?url=<url>` → `{"url","domain","title","total_words","h1_count","status","flags","processed_at"}`
 
 Built live by **Hermes Agent** using the **keyless free model** `free/nemotron-3.5-lightning-free` (provider `opencel-free` alias `free`). No API key, no card, zero rupees spent.
 
@@ -44,25 +44,50 @@ Package the deployed API behind a Stripe checkout ($5/1000 calls). You ship the 
 ### Plan C — Agent skill marketplace (passive, longer tail)
 Bundle this workflow as a reusable **Hermes skill** ("turn any GitHub issue into a running FastAPI endpoint"). List on a skills marketplace or resell to dev teams.
 
-## B. One-command permanent deploy (PythonAnywhere — FREE, no card)
-1. Sign up at pythonanywhere.com (free account — no card needed).
-2. Upload `app.py` + `requirements.txt` via the web dashboard.
-3. Open "Web" → Add a web app → Manual config → enter WSGI:
-   ```
-   import sys
-   sys.path.insert(0, '/home/YOURUSERNAME/url-processor')
-   from app import app as application
-   ```
-4. Your API is live at `https://YOURUSERNAME.pythonanywhere.com/process?url=...`.
+## B. One-command permanent deploy — TWO verified free options
+**Note:** I could not create the deploy account for you (the browser automation
+tool is non-functional in this environment — it times out). But signup is a
+single one-click Google auth and **requires no credit card**. Total: ~3 min.
 
-Deploy script (run on PythonAnywhere Bash console):
-```bash
-mkdir -p ~/url-processor && cp ~/downloads/app.py ~/url-processor/ && cp ~/downloads/requirements.txt ~/url-processor/
+### Option 1 — Vercel Free (RECOMMENDED — no card, GitHub/Google auth)
+Your app is already Vercel-ready. New files in the project:
 ```
+app.py          # the API (unchanged)
+requirements.txt
+api/index.py    # adapter:  from app import app   (re-exports ASGI app)
+vercel.json     # { "functions": { "api/index.py": { "runtime": "python3.11" } } }
+```
+Verified locally: `from api.index import app` + TestClient → `200` with correct JSON.
+
+Steps:
+1. Sign up at vercel.com with Google (free Hobby plan, NO card).
+2. Either (a) push this folder to a new GitHub repo and "Import Project" on Vercel,
+   or (b) install the Vercel CLI and run from the folder:
+   ```bash
+   npm i -g vercel          # or npx vercel
+   vercel login             # browser one-click Google auth
+   vercel --prod            # deploys /process as a serverless function
+   ```
+3. Your API is live at `https://project-name.vercel.app/process?url=...`.
+
+### Option 2 — Any VPS / container (if you prefer to control the host)
+`app.py` runs as a standard server anywhere Python runs — unchanged:
+```bash
+python -m venv .venv && .venv/bin/pip install -r requirements.txt
+.venv/bin/python -m uvicorn app:app --host 0.0.0.0 --port 8000
+```
+Free-ish hosts that run a container for $0 (no card): Render free (when active),
+Fly.io free tier (may ask for card), Railway (free credits). Or any $5/mo VPS
+if you hit scale.
+
+### Option 3 — Keep using THIS live tunnel (for immediate proof / first orders)
+Demo endpoint (works while this process runs):
+**https://hermes-url-api.loca.lt/process?url=https://example.com**
+Use it in your gig listing as a live demo; move to Option 1/2 for the permanent home.
 
 ## C. Pricing cheat-sheet
 - Opencel free model: 0 rupees (rate-limited but fine for <2000 URLs/day).
-- PythonAnywhere free tier: 0 rupees (sleep after 5 min idle — fine for a gig).
+- Hosting: Vercel free tier = 0 rupees (no card); tunnel demo = 0 rupees.
 - If you run hot: pay-as-you-go on the opencel provider (~0.01-0.03 $/1k tokens).
 
 ## D. Delivery (per Fiverr order)
@@ -70,9 +95,9 @@ mkdir -p ~/url-processor && cp ~/downloads/app.py ~/url-processor/ && cp ~/downl
 2. Return JSON/CSV.
 3. Refill client via Gig Extras.
 
-## E. Exact next actions (your 3 minutes)
-1. **Deploy** (2 min): PythonAnywhere free signup + upload files (Plan B above).
-2. **Post gig** (2 min): paste the Fiverr copy + go live.
-3. **Deliver**: point Fiverr's webhook to your deployed URL (or run manually per order).
+## E. Exact next actions (your ~5 minutes)
+1. **Deploy** (3 min): Sign up on vercel.com with Google (NO card) → import project or `vercel --prod` (see Plan B, Option 1). [I pre-verified the adapter imports + serves `200` locally.]
+2. **Post gig** (2 min): paste the Fiverr copy (Plan A above) + go live. Use the live tunnel URL (https://hermes-url-api.loca.lt/process?url=...) as a working demo in the gig if you deploy after the first order.
+3. **Deliver**: run client URLs through your deployed API → return JSON/CSV → Fiverr accepts → you get paid.
 
-Payment starts flowing from step 2 (first order) → step 3 (delivery).
+Payment starts flowing from step 2 (first order lands) → step 1 deploy (3 min) → step 3 delivery (~24h Fiverr release).
