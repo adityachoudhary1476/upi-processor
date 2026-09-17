@@ -93,7 +93,7 @@ def extract_page_info(url: str) -> dict:
     for ua in USER_AGENTS:
         headers = {"User-Agent": ua, "Accept-Language": "en-US,en;q=0.9"}
         try:
-            with httpx.Client(timeout=30.0, follow_redirects=True) as client:
+            with httpx.Client(timeout=12.0, follow_redirects=True) as client:
                 response = client.get(url, headers=headers)
                 response.raise_for_status()
                 content = response.text
