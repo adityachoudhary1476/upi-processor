@@ -131,14 +131,36 @@ async def process(url: Optional[str] = None):
         result = extract_page_info(url)
         return result
     except httpx.HTTPStatusError as e:
+        code = e.response.status_code
+        # 400/401/403/409/429 are site-side bot-blocks (e.g. facebook.com / instagram).
+        # Surface a clear, deliverable-friendly message instead of the cryptic raw error.
+        blocked = code in (400, 401, 403, 409, 429)
+        message = (
+            f"Site blocked (HTTP {code}). The target actively blocks automated extraction "
+            f"(common for social/JS-heavy sites); a real browser is required."
+            if blocked
+            else f"HTTP error fetching URL: {code}"
+        )
         return JSONResponse(
-            status_code=400,
-            content={"error": f"HTTP error fetching URL: {e.response.status_code}"},
+            status_code=200,
+            content={
+                "url": url,
+                "domain": extract_domain(url),
+                "error": message,
+                "status": code,
+                "blocked": blocked,
+            },
         )
     except httpx.RequestError as e:
         return JSONResponse(
-            status_code=400,
-            content={"error": f"Request error: {str(e)}"},
+            status_code=200,
+            content={
+                "url": url,
+                "domain": extract_domain(url),
+                "error": f"Request error: {str(e)}",
+                "status": None,
+                "blocked": False,
+            },
         )
     except Exception as e:
         return JSONResponse(
